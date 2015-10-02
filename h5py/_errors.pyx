@@ -102,6 +102,9 @@ cdef int set_exception() except -1:
     if err.n < 0:   # No HDF5 exception information found
         return 0
 
+    up_maj = err.err.maj_num
+    up_min = err.err.min_num
+
     eclass = _minor_table.get(err.err.min_num, RuntimeError)
     eclass = _exact_table.get((err.err.maj_num, err.err.min_num), eclass)
 
@@ -120,12 +123,22 @@ cdef int set_exception() except -1:
     if desc_bottom is NULL:
         raise RuntimeError("Failed to extract bottom-level error description")
 
-    msg = ("%s (%s)" % (desc.decode('utf-8').capitalize(), desc_bottom.decode('utf-8').capitalize())).encode('utf-8')
+    desc_str        = desc.decode("utf8").capitalize()
+    desc_bottom_str = desc_bottom.decode('utf-8').capitalize()
 
     # Finally, set the exception.  We do this with the Python C function
     # so that the traceback doesn't point here.
 
-    PyErr_SetString(eclass, msg)
+    # msg = "{top} ({bot})".format(top=desc_str, bot=desc_bottom_str).encode('utf-8')
+    # PyErr_SetString(eclass, msg)
+
+    PyErr_SetObject(eclass, (desc_str, dict(
+        up_maj=up_maj,
+        up_min=up_min,
+        bot_maj=err.err.maj_num,
+        bot_min=err.err.min_num,
+        desc=desc_str,desc_bottom=desc_bottom_str,
+        n=err.n)))
 
     return 1
 
